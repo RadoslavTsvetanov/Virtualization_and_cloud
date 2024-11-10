@@ -1,17 +1,21 @@
-FROM golang:1.20 AS build
+# Use an official Golang runtime as the base image
+FROM golang:1.23-alpine
 
+# Set the Current Working Directory inside the container
 WORKDIR /app
 
+# Copy the Go modules manifests
 COPY go.mod go.sum ./
 
+# Download all dependencies. Dependencies will be cached if the go.mod and go.sum are not changed
 RUN go mod download
 
+# Copy the entire Go project
 COPY . .
 
-RUN go build -o myapp main.go
+# Expose port 8080
+EXPOSE 8080
 
-FROM alpine:latest
+# Run the Go application
+CMD ["go", "run", "."]
 
-COPY --from=build /app/myapp /usr/local/bin/myapp
-
-ENTRYPOINT ["/usr/local/bin/myapp"]

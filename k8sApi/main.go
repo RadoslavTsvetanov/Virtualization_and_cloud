@@ -6,11 +6,8 @@ import (
 	. "k8s/templates"
     "context"
     "log"
-    "net/http"
     "os"
-    "time"
  "go.mongodb.org/mongo-driver/bson"
-    "github.com/joho/godotenv"
     "go.mongodb.org/mongo-driver/mongo"
     "go.mongodb.org/mongo-driver/mongo/options"
 	. "k8s/api"
@@ -97,45 +94,6 @@ func testingSpinningUpMiniInfra() {
 
 	ApplyTemplateToProject("ooo", []TemplateContainer{tc1, tc2})
 
-}
-
-
-func setUpServerAndEnvs(){
-if err := godotenv.Load(); err != nil {
-        log.Printf("Warning: .env file not found")
-    }
-
-    // Get MongoDB connection string from environment variable
-    mongoURI := getEnvWithDefault("MONGODB_URI", "mongodb://localhost:27017")
-    dbName := getEnvWithDefault("DB_NAME", "userauth")
-    port := getEnvWithDefault("PORT", "8080")
-
-    // Connect to MongoDB
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer cancel()
-
-    client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer client.Disconnect(ctx)
-
-    // Ping the database
-    if err := client.Ping(ctx, nil); err != nil {
-        log.Fatal(err)
-    }
-
-    // Create indexes
-    db := client.Database(dbName)
-    createIndexes(ctx, db)
-
-    // Initialize and start server
-    server := NewServer(db)
-    
-    log.Printf("Server starting on port %s", port)
-    if err := http.ListenAndServe(":"+port, server); err != nil {
-        log.Fatal(err)
-    }
 }
 
 func getEnvWithDefault(key, defaultValue string) string {
@@ -232,6 +190,5 @@ func main() {
 	// testingSpinningUpMiniInfra()
 
 
-	setUpServerAndEnvs()
-
+SetupServer()
 }
