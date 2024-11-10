@@ -3,16 +3,35 @@ version: '3.8'
 services:
   mongo:
     image: mongo:latest
-    container_name: my-mongo-db
+    container_name: mongo-container
     ports:
-      - "27017:27017"       # Expose MongoDB on the host
+      - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root    # MongoDB root user
-      MONGO_INITDB_ROOT_PASSWORD: example # MongoDB root password
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
     volumes:
-      - mongo_data:/data/db  # Persistent volume for MongoDB data
+      - mongo-data:/data/db
+
+  frontend:
+    image: radoslav123/vot-frontend:latest  
+    container_name: frontend-container
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_URL: "http://backend:8080"  # Set the backend service URL
+    depends_on:
+      - backend
+
+  backend:
+    image: radoslav123/vot-backend:latest  # Replace with your actual backend image name
+    container_name: backend-container
+    ports:
+      - "8080:8080"
+    environment:
+      MONGO_URI: "mongodb://root:rootpassword@mongo:27017"  # MongoDB URI for the backend to connect to MongoDB
+    depends_on:
+      - mongo
 
 volumes:
-  mongo_data:
-    driver: local             # Local volume driver
+  mongo-data:
 

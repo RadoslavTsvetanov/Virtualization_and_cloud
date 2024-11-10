@@ -1,65 +1,85 @@
-import axios, {type AxiosResponse } from "axios";
-import { response_not_ok } from "./consts";
-class Api {
-  private url: string;
+import { KeyCodes } from './../canvas/utils/keycodes';
+// apiClient.ts
 
-  constructor(url: string) {
-    this.url = url;
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { cookies } from './cookie_interacter';
+
+const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+console.log(apiBaseUrl);
+interface User {
+  username: string;
+  password: string;
+  k8sToken: string;
+}
+
+interface LoginResponse {
+  token: string;
+}
+
+interface K8sTokenResponse {
+  k8sToken: string;
+}
+
+class ApiClient {
+  private axiosInstance: AxiosInstance;
+  public token: string | null = null;  // To store the session token for protected routes
+
+  constructor() {
+    this.axiosInstance = axios.create({
+      baseURL: apiBaseUrl,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 
-  private async makeRequest<V>(
-    url: string,
-    method: "GET" | "POST" | "PUT" | "DELETE",
-    data?: object,
-    headers?: object,
-  ): Promise<{
-    status: number;
-    data: V | null;
-    err: object | null;
-  }> {
-    // TODO make it accept a generic with the response data parameter type and see how ypu can make it better
-    try {
-      const response: AxiosResponse = await axios({
-        url,
-        method,
-        data: method === "GET" ? undefined : data, // Only include data if method is not GET
-        headers: {
-          "User-Agent": "Thunder Client (https://www.thunderclient.com)",
-          Accept: "*/*",
-          ...headers,
-        },
-      });
-      return { status: response.status, data: response.data, err: null };
-    } catch (err) {
-      console.error("Error making request:", err);
-      return {
-        status: response_not_ok,
-        data: null,
-        err: err,
-      };
+  // Set the authorization token in headers
+  private setAuthToken() {
+    if (this.token) {
+      this.axiosInstance.defaults.headers.Authorization = this.token;
     }
   }
 
-  async get() {
-    return await this.makeRequest<{ user: string }>(
-      `${this.url}`,
-      "GET",
-      undefined, // No body for GET requests
-      {}, // No additional headers needed for GET
-    );
+  async signup(username: string, password: string){
+    await this.axiosInstance.post('/signup', { username, password });
   }
 
-  async post(data: object) {
-    return await this.makeRequest(
-      `${this.url}/user`,
-      "POST",
-      data, // Include body data for POST requests
-      { "Content-Type": "application/json" }, // Set appropriate headers
-    );
+  // Login function
+  async login(username: string, password: string) {
+    const response: AxiosResponse<LoginResponse> = await this.axiosInstance.post('/login', { username, password });
+    this.token = response.data.token;  // Store the token for subsequent requests
+    return response;
+  }
+
+  // Get Kubernetes token function (protected)
+  async getK8sToken(username: string)  {
+    
+    this.token = cookies.auth.get()!
+    
+    if (!this.token) {
+      throw new Error('User not logged in');
+    }
+
+    const response: AxiosResponse<K8sTokenResponse> = await this.axiosInstance.get(`/getK8sToken/${username}`, {
+      headers : {'Authorization': this.token+"=="}
+    });
+    return response.data;
+  }
+
+  // Set Kubernetes token function (protected)
+  async setK8sToken(username: string, k8sToken: string): Promise<void> {
+    this.token = cookies.auth.get()!
+    if (!this.token) {
+      throw new Error('User not logged in');
+    }
+
+    await this.axiosInstance.post(`/setK8sToken/${username}`, { k8sToken }, {
+      headers: {
+        Authorization: this.token + "==",
+      },
+    });
   }
 }
 
-export const api = new Api("http://localhost:6000");
-export const isResponseNotOk = (response: number) => {
-  return response === response_not_ok;
-};
+// Example usage
+export const apiClient = new ApiClient();
